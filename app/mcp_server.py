@@ -5,6 +5,7 @@ from typing import Any, Literal
 
 from mcp.server import MCPServer
 from mcp.server.transport_security import TransportSecuritySettings
+from mcp.types import ToolAnnotations
 
 from .nemotron import NemotronError, analyze_context, evaluate_patch as evaluate_patch_backend
 
@@ -23,7 +24,17 @@ mcp = MCPServer(
 )
 
 
-@mcp.tool()
+READ_ONLY_EXTERNAL_ANALYSIS = ToolAnnotations(
+    read_only_hint=True,
+    open_world_hint=True,
+    destructive_hint=False,
+)
+
+
+@mcp.tool(
+    title="Find the missing question",
+    annotations=READ_ONLY_EXTERNAL_ANALYSIS,
+)
 def poke_hole(
     context: str,
     mode: Literal["manual", "sidecar"] = "sidecar",
@@ -32,7 +43,8 @@ def poke_hole(
 
     Use mode='sidecar' for automatic agent integrations: interrupt only for
     high-confidence, high-impact concerns. Use mode='manual' when the builder
-    explicitly asks for scrutiny.
+    explicitly asks for scrutiny. This tool analyzes text but does not modify
+    the user's project, files, accounts, or external systems.
     """
     if not context.strip():
         raise ValueError("context must not be empty")
@@ -45,7 +57,10 @@ def poke_hole(
     return result.model_dump(exclude_none=True)
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Verify a patched concern",
+    annotations=READ_ONLY_EXTERNAL_ANALYSIS,
+)
 def evaluate_patch(
     question: str,
     assumption: str,
@@ -59,7 +74,8 @@ def evaluate_patch(
     """Verify whether a builder actually patched a previously surfaced concern.
 
     Pass the fields from the earlier POKE_HOLE result plus the builder's proposed
-    resolution. Returns PATCHED, PARTIALLY_PATCHED, or STILL_OPEN.
+    resolution. Returns PATCHED, PARTIALLY_PATCHED, or STILL_OPEN. This tool is
+    read-only and does not change the project or any external system.
     """
     original_concern = {
         "status": "POKE_HOLE",
