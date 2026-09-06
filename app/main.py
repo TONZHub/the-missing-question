@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
 load_dotenv()
@@ -27,8 +28,6 @@ STATIC_DIR = BASE_DIR / "static"
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
-    # Mounted MCP sub-app lifespans are not run by Starlette/FastAPI. The host
-    # application must own the MCP session manager for the lifetime of the app.
     async with mcp.session_manager.run():
         yield
 
@@ -45,6 +44,30 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 @app.get("/", include_in_schema=False)
 async def index() -> FileResponse:
     return FileResponse(STATIC_DIR / "index.html")
+
+
+@app.get("/privacy", include_in_schema=False)
+async def privacy() -> FileResponse:
+    return FileResponse(STATIC_DIR / "privacy.html")
+
+
+@app.get("/terms", include_in_schema=False)
+async def terms() -> FileResponse:
+    return FileResponse(STATIC_DIR / "terms.html")
+
+
+@app.get("/support", include_in_schema=False)
+async def support() -> FileResponse:
+    return FileResponse(STATIC_DIR / "support.html")
+
+
+@app.get("/.well-known/openai-apps-challenge", include_in_schema=False)
+async def openai_apps_challenge() -> PlainTextResponse:
+    token = os.getenv("OPENAI_APPS_CHALLENGE", "").strip()
+    if not token:
+        raise HTTPException(status_code=404, detail="Challenge token not configured")
+    # The submission portal requires the response body to contain only the token.
+    return PlainTextResponse(token, media_type="text/plain")
 
 
 @app.get("/healthz", include_in_schema=False)
@@ -73,5 +96,5 @@ async def evaluate_patch_endpoint(req: EvaluatePatchRequest) -> PatchResponse:
 
 
 # Keep this mount last. It catches the MCP protocol route at /mcp while the
-# web UI, REST API, docs, static assets, and health check above remain intact.
+# web UI, policy pages, REST API, static assets, and health check remain intact.
 app.mount("/", mcp_app)
