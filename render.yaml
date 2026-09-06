@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: the-missing-question
+    runtime: docker
+    plan: free
+
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /healthz
+
+    autoDeploy: true
+
+    envVars:
+      - key: NEMOTRON_API_URL
+        sync: false
+
+      - key: NEMOTRON_MODEL_NAME
+        sync: false
+
+      - key: NEMOTRON_API_KEY
+        sync: false
