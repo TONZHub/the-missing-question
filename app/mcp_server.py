@@ -6,19 +6,19 @@ from typing import Any, Literal
 from mcp.server import MCPServer
 from mcp.server.transport_security import TransportSecuritySettings
 
-from .nemotron import NemotronError, analyze_context, evaluate_patch
+from .nemotron import NemotronError, analyze_context, evaluate_patch as evaluate_patch_backend
 
 
 mcp = MCPServer(
     "The Missing Question",
     instructions=(
         "The Missing Question is an adversarial reasoning sidecar for builders. "
-        "Use poke_hole when a project is about to make a consequential architectural, "
-        "security, privacy, dependency, product, or implementation decision. In sidecar "
-        "mode, if the result is CLEAR, continue silently. If the result is POKE_HOLE, "
-        "surface that one question before proceeding. Do not call poke_hole for trivial "
-        "or cheaply reversible changes. Use evaluate_patch_tool after the builder explains "
-        "how they addressed a previously surfaced concern."
+        "Use poke_hole before consequential architectural, security, privacy, dependency, "
+        "product, or implementation decisions. In sidecar mode, if the result is CLEAR, "
+        "continue silently. If the result is POKE_HOLE, surface that single question before "
+        "proceeding. Do not invoke it for trivial or cheaply reversible changes. After the "
+        "builder addresses a concern, use evaluate_patch to verify whether the original hole "
+        "is actually closed."
     ),
 )
 
@@ -30,7 +30,7 @@ def poke_hole(
 ) -> dict[str, Any]:
     """Find the single highest-leverage unanswered question in a builder's context.
 
-    Use mode='sidecar' for automatic agent integrations: it interrupts only for
+    Use mode='sidecar' for automatic agent integrations: interrupt only for
     high-confidence, high-impact concerns. Use mode='manual' when the builder
     explicitly asks for scrutiny.
     """
@@ -42,12 +42,11 @@ def poke_hole(
     except NemotronError as exc:
         raise RuntimeError(str(exc)) from exc
 
-    # Keep CLEAR tiny; POKE_HOLE carries the full concern.
     return result.model_dump(exclude_none=True)
 
 
 @mcp.tool()
-def evaluate_patch_tool(
+def evaluate_patch(
     question: str,
     assumption: str,
     why_now: str,
@@ -57,7 +56,7 @@ def evaluate_patch_tool(
     resolution: str,
     updated_context: str = "",
 ) -> dict[str, Any]:
-    """Check whether a builder has actually patched a previously surfaced hole.
+    """Verify whether a builder actually patched a previously surfaced concern.
 
     Pass the fields from the earlier POKE_HOLE result plus the builder's proposed
     resolution. Returns PATCHED, PARTIALLY_PATCHED, or STILL_OPEN.
@@ -76,7 +75,7 @@ def evaluate_patch_tool(
         raise ValueError("resolution must not be empty")
 
     try:
-        result = evaluate_patch(
+        result = evaluate_patch_backend(
             original_concern=original_concern,
             resolution=resolution.strip(),
             updated_context=updated_context,
@@ -115,8 +114,6 @@ def build_mcp_app():
         ],
     )
 
-    # Default inner path is /mcp. main.py mounts this app at '/', which keeps
-    # the public connector URL exactly https://.../mcp without a double prefix.
     return mcp.streamable_http_app(
         transport_security=security,
         stateless_http=True,

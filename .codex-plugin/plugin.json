@@ -1,0 +1,23 @@
+{
+  "name": "the-missing-question",
+  "version": "0.1.0",
+  "description": "An adversarial reasoning sidecar that finds the single unanswered question most likely to derail the work.",
+  "homepage": "https://the-missing-question.onrender.com",
+  "repository": "https://github.com/TONZHub/the-missing-question",
+  "keywords": ["adversarial reasoning", "architecture", "risk", "developer tools", "mcp"],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "The Missing Question",
+    "shortDescription": "Find the one assumption most likely to derail the work.",
+    "longDescription": "A high-signal adversarial reasoning sidecar for builders. It stays quiet during routine work, but before consequential decisions it can surface the single unsupported assumption most likely to invalidate, endanger, or force an expensive redesign of what you are building.",
+    "developerName": "TONZHub",
+    "websiteURL": "https://the-missing-question.onrender.com",
+    "defaultPrompt": [
+      "Use The Missing Question to stress-test this architecture before I commit to it.",
+      "Poke one hole in this plan only if there is something worth stopping for.",
+      "Check whether I actually patched the concern you raised."
+    ],
+    "brandColor": "#00FF41"
+  }
+}
