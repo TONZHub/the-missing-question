@@ -134,14 +134,18 @@ def _call_forced_tool(
         "parallel_tool_calls": False,
         "temperature": temperature,
         "max_tokens": max_tokens,
-        # Let Nemotron reason, but don't send the reasoning trace back to us.
+        # Route only to providers OpenRouter marks as not collecting user data.
+        "provider": {
+            "data_collection": "deny",
+            "require_parameters": True,
+        },
+        # Let Nemotron reason, but don't return the reasoning trace.
         "reasoning": {"exclude": True},
     }
 
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
-        # Optional OpenRouter attribution headers.
         "HTTP-Referer": os.getenv(
             "OPENROUTER_SITE_URL",
             "https://the-missing-question.onrender.com",
@@ -185,13 +189,8 @@ def _call_forced_tool(
         if call.get("function", {}).get("name") == tool_name
     ]
     if not matching_calls:
-        names = [
-            call.get("function", {}).get("name")
-            for call in tool_calls
-        ]
-        raise NemotronError(
-            f"Nemotron called the wrong tool(s): {names!r}"
-        )
+        names = [call.get("function", {}).get("name") for call in tool_calls]
+        raise NemotronError(f"Nemotron called the wrong tool(s): {names!r}")
 
     arguments = matching_calls[0].get("function", {}).get("arguments")
     if not isinstance(arguments, str):
@@ -240,9 +239,7 @@ def _normalize_patch(data: dict[str, Any]) -> dict[str, Any]:
     return {
         "result": result,
         "explanation": data.get("explanation"),
-        "remaining_question": (
-            None if result == "PATCHED" else data.get("remaining_question")
-        ),
+        "remaining_question": None if result == "PATCHED" else data.get("remaining_question"),
     }
 
 
@@ -254,21 +251,14 @@ def analyze_context(context: str, mode: str = "manual") -> AnalyzeResponse:
 
     last_error: Exception | None = None
 
-    # One clean retry if the tool arguments fail our schema.
     for _ in range(2):
         try:
-            data = _call_forced_tool(
-                messages,
-                ANALYZE_TOOL,
-                "submit_analysis",
-            )
+            data = _call_forced_tool(messages, ANALYZE_TOOL, "submit_analysis")
             return AnalyzeResponse.model_validate(_normalize_analyze(data))
         except (NemotronError, ValidationError) as exc:
             last_error = exc
 
-    raise NemotronError(
-        f"Invalid analyze tool response after retry: {last_error}"
-    )
+    raise NemotronError(f"Invalid analyze tool response after retry: {last_error}")
 
 
 def evaluate_patch(
@@ -292,15 +282,9 @@ def evaluate_patch(
 
     for _ in range(2):
         try:
-            data = _call_forced_tool(
-                messages,
-                PATCH_TOOL,
-                "submit_patch_evaluation",
-            )
+            data = _call_forced_tool(messages, PATCH_TOOL, "submit_patch_evaluation")
             return PatchResponse.model_validate(_normalize_patch(data))
         except (NemotronError, ValidationError) as exc:
             last_error = exc
 
-    raise NemotronError(
-        f"Invalid patch tool response after retry: {last_error}"
-    )
+    raise NemotronError(f"Invalid patch tool response after retry: {last_error}")
