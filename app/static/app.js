@@ -223,7 +223,7 @@
     resetBtn.type = "button";
     resetBtn.addEventListener("click", resetQuery);
 
-    const patchBtn = makeText("button", "primary", "DID I PATCH THE HOLE?");
+    const patchBtn = makeText("button", "primary", "I'VE PATCHED IT!");
     patchBtn.type = "button";
     patchBtn.addEventListener("click", () => showPatchPanel(card));
 
