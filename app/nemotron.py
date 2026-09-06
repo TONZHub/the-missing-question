@@ -11,7 +11,6 @@ from .models import AnalyzeResponse, PatchResponse
 from .prompts import (
     SYSTEM_PROMPT_ANALYZE,
     SYSTEM_PROMPT_EVALUATE,
-    SYSTEM_PROMPT_REPAIR,
     build_user_prompt_analyze,
     build_user_prompt_evaluate,
 )
@@ -19,6 +18,84 @@ from .prompts import (
 
 class NemotronError(RuntimeError):
     pass
+
+
+ANALYZE_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "submit_analysis",
+        "description": (
+            "Submit the single highest-leverage project concern, or CLEAR when "
+            "there is genuinely no meaningful unresolved assumption."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "enum": ["CLEAR", "POKE_HOLE"],
+                },
+                "question": {
+                    "type": "string",
+                    "description": "The single question the builder must answer. Omit for CLEAR.",
+                },
+                "assumption": {
+                    "type": "string",
+                    "description": "The unsupported assumption at the root. Omit for CLEAR.",
+                },
+                "why_now": {
+                    "type": "string",
+                    "description": "Why this matters at the current stage. Omit for CLEAR.",
+                },
+                "severity": {
+                    "type": "string",
+                    "enum": ["low", "medium", "high", "critical"],
+                    "description": "Severity of the concern. Omit for CLEAR.",
+                },
+                "failure_if_ignored": {
+                    "type": "string",
+                    "description": "What could break if the assumption is wrong. Omit for CLEAR.",
+                },
+                "evidence": {
+                    "type": "string",
+                    "description": "Specific evidence from the supplied context. Omit for CLEAR.",
+                },
+            },
+            "required": ["status"],
+            "additionalProperties": False,
+        },
+    },
+}
+
+PATCH_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "submit_patch_evaluation",
+        "description": "Submit the verdict on whether the original concern has been patched.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "result": {
+                    "type": "string",
+                    "enum": ["PATCHED", "PARTIALLY_PATCHED", "STILL_OPEN"],
+                },
+                "explanation": {
+                    "type": "string",
+                    "description": "A brief justification for the verdict.",
+                },
+                "remaining_question": {
+                    "type": "string",
+                    "description": (
+                        "Exactly one remaining question when PARTIALLY_PATCHED or "
+                        "STILL_OPEN. Omit when PATCHED."
+                    ),
+                },
+            },
+            "required": ["result", "explanation"],
+            "additionalProperties": False,
+        },
+    },
+}
 
 
 def _env(var: str, default: str | None = None) -> str:
@@ -36,23 +113,40 @@ def _settings() -> tuple[str, str, str]:
     )
 
 
-def _call_llm(
+def _call_forced_tool(
     messages: list[dict[str, str]],
+    tool: dict[str, Any],
+    tool_name: str,
     *,
     temperature: float = 0.15,
-    max_tokens: int = 700,
-) -> str:
+    max_tokens: int = 2000,
+) -> dict[str, Any]:
     api_url, model_name, api_key = _settings()
 
     payload = {
         "model": model_name,
         "messages": messages,
+        "tools": [tool],
+        "tool_choice": {
+            "type": "function",
+            "function": {"name": tool_name},
+        },
+        "parallel_tool_calls": False,
         "temperature": temperature,
         "max_tokens": max_tokens,
+        # Let Nemotron reason, but don't send the reasoning trace back to us.
+        "reasoning": {"exclude": True},
     }
+
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
+        # Optional OpenRouter attribution headers.
+        "HTTP-Referer": os.getenv(
+            "OPENROUTER_SITE_URL",
+            "https://the-missing-question.onrender.com",
+        ),
+        "X-Title": "The Missing Question",
     }
 
     try:
@@ -60,64 +154,96 @@ def _call_llm(
             api_url,
             headers=headers,
             json=payload,
-            timeout=httpx.Timeout(45.0),
+            timeout=httpx.Timeout(60.0),
         )
         response.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        detail = exc.response.text[:1000]
+        raise NemotronError(
+            f"Nemotron API returned HTTP {exc.response.status_code}: {detail}"
+        ) from exc
     except httpx.HTTPError as exc:
         raise NemotronError(f"Nemotron API request failed: {exc}") from exc
 
     try:
         data = response.json()
-        return data["choices"][0]["message"]["content"]
+        message = data["choices"][0]["message"]
+        tool_calls = message.get("tool_calls") or []
     except (ValueError, KeyError, IndexError, TypeError) as exc:
-        raise NemotronError("Nemotron API returned an unexpected response shape.") from exc
+        raise NemotronError("OpenRouter returned an unexpected response shape.") from exc
 
+    if not tool_calls:
+        content = message.get("content")
+        preview = repr(content[:300] if isinstance(content, str) else content)
+        raise NemotronError(
+            f"Nemotron did not call the required tool. Model content was: {preview}"
+        )
 
-def _extract_json(text: str) -> dict[str, Any]:
-    cleaned = text.strip()
+    matching_calls = [
+        call
+        for call in tool_calls
+        if call.get("function", {}).get("name") == tool_name
+    ]
+    if not matching_calls:
+        names = [
+            call.get("function", {}).get("name")
+            for call in tool_calls
+        ]
+        raise NemotronError(
+            f"Nemotron called the wrong tool(s): {names!r}"
+        )
 
-    if cleaned.startswith("```"):
-        lines = cleaned.splitlines()
-        if lines and lines[0].startswith("```"):
-            lines = lines[1:]
-        if lines and lines[-1].strip() == "```":
-            lines = lines[:-1]
-        cleaned = "\n".join(lines).strip()
-        if cleaned.lower().startswith("json"):
-            cleaned = cleaned[4:].lstrip()
+    arguments = matching_calls[0].get("function", {}).get("arguments")
+    if not isinstance(arguments, str):
+        raise NemotronError("Tool arguments were missing or were not a JSON string.")
 
     try:
-        value = json.loads(cleaned)
-        if not isinstance(value, dict):
-            raise NemotronError("Model returned JSON that was not an object.")
-        return value
-    except json.JSONDecodeError:
-        start = cleaned.find("{")
-        end = cleaned.rfind("}")
-        if start == -1 or end == -1 or end <= start:
-            raise NemotronError("Model did not return valid JSON.")
+        parsed = json.loads(arguments)
+    except json.JSONDecodeError as exc:
+        raise NemotronError(
+            f"Nemotron returned malformed tool arguments: {arguments[:500]}"
+        ) from exc
 
-        try:
-            value = json.loads(cleaned[start : end + 1])
-        except json.JSONDecodeError as exc:
-            raise NemotronError("Model returned malformed JSON.") from exc
+    if not isinstance(parsed, dict):
+        raise NemotronError("Nemotron tool arguments were not a JSON object.")
 
-        if not isinstance(value, dict):
-            raise NemotronError("Model returned JSON that was not an object.")
-        return value
+    return parsed
 
 
-def _repair_once(
-    original_messages: list[dict[str, str]],
-    bad_output: str,
-) -> dict[str, Any]:
-    repair_messages = [
-        *original_messages,
-        {"role": "assistant", "content": bad_output},
-        {"role": "system", "content": SYSTEM_PROMPT_REPAIR},
-    ]
-    repaired = _call_llm(repair_messages, temperature=0.0)
-    return _extract_json(repaired)
+def _normalize_analyze(data: dict[str, Any]) -> dict[str, Any]:
+    status = data.get("status")
+
+    if status == "CLEAR":
+        return {
+            "status": "CLEAR",
+            "question": None,
+            "assumption": None,
+            "why_now": None,
+            "severity": None,
+            "failure_if_ignored": None,
+            "evidence": None,
+        }
+
+    return {
+        "status": status,
+        "question": data.get("question"),
+        "assumption": data.get("assumption"),
+        "why_now": data.get("why_now"),
+        "severity": data.get("severity"),
+        "failure_if_ignored": data.get("failure_if_ignored"),
+        "evidence": data.get("evidence"),
+    }
+
+
+def _normalize_patch(data: dict[str, Any]) -> dict[str, Any]:
+    result = data.get("result")
+    return {
+        "result": result,
+        "explanation": data.get("explanation"),
+        "remaining_question": (
+            None if result == "PATCHED" else data.get("remaining_question")
+        ),
+    }
 
 
 def analyze_context(context: str, mode: str = "manual") -> AnalyzeResponse:
@@ -126,17 +252,23 @@ def analyze_context(context: str, mode: str = "manual") -> AnalyzeResponse:
         {"role": "user", "content": build_user_prompt_analyze(context, mode)},
     ]
 
-    raw = _call_llm(messages)
+    last_error: Exception | None = None
 
-    for attempt in range(2):
+    # One clean retry if the tool arguments fail our schema.
+    for _ in range(2):
         try:
-            data = _extract_json(raw) if attempt == 0 else _repair_once(messages, raw)
-            return AnalyzeResponse.model_validate(data)
+            data = _call_forced_tool(
+                messages,
+                ANALYZE_TOOL,
+                "submit_analysis",
+            )
+            return AnalyzeResponse.model_validate(_normalize_analyze(data))
         except (NemotronError, ValidationError) as exc:
-            if attempt == 1:
-                raise NemotronError(f"Invalid analyze response after repair: {exc}") from exc
+            last_error = exc
 
-    raise NemotronError("Unable to validate analyze response.")
+    raise NemotronError(
+        f"Invalid analyze tool response after retry: {last_error}"
+    )
 
 
 def evaluate_patch(
@@ -156,14 +288,19 @@ def evaluate_patch(
         },
     ]
 
-    raw = _call_llm(messages)
+    last_error: Exception | None = None
 
-    for attempt in range(2):
+    for _ in range(2):
         try:
-            data = _extract_json(raw) if attempt == 0 else _repair_once(messages, raw)
-            return PatchResponse.model_validate(data)
+            data = _call_forced_tool(
+                messages,
+                PATCH_TOOL,
+                "submit_patch_evaluation",
+            )
+            return PatchResponse.model_validate(_normalize_patch(data))
         except (NemotronError, ValidationError) as exc:
-            if attempt == 1:
-                raise NemotronError(f"Invalid patch response after repair: {exc}") from exc
+            last_error = exc
 
-    raise NemotronError("Unable to validate patch response.")
+    raise NemotronError(
+        f"Invalid patch tool response after retry: {last_error}"
+    )
