@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy — The Missing Question</title>
+  <style>
+    body{margin:0;background:#020602;color:#00d737;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;line-height:1.65}main{max-width:780px;margin:0 auto;padding:48px 22px 80px}h1,h2{color:#00ff41}h1{font-size:2rem}h2{margin-top:2rem;font-size:1.1rem}a{color:#78ff96}.muted{color:#568a61}.box{border:1px solid #175822;background:#010d04;padding:18px;margin:24px 0}code{color:#9effb4}
+  </style>
+</head>
+<body>
+<main>
+  <p class="muted">THE MISSING QUESTION // POLICY.TXT</p>
+  <h1>Privacy Policy</h1>
+  <p class="muted">Last updated: September 6, 2026</p>
+
+  <div class="box">The Missing Question is a developer-focused reasoning tool. It analyzes text you provide to surface one high-leverage unanswered question and can evaluate whether that concern was addressed.</div>
+
+  <h2>What you send</h2>
+  <p>When you use the web app or MCP tools, you may send product ideas, architecture notes, code-related context, project plans, a proposed resolution, and related text needed to perform the analysis.</p>
+  <p>Do not send passwords, API keys, authentication tokens, private keys, or other secrets. Avoid sending personal or confidential information unless you have the right to share it and are comfortable having it processed by the services described below.</p>
+
+  <h2>How your content is processed</h2>
+  <p>The service sends the text needed for analysis to OpenRouter, which routes the request to the configured Nemotron model provider. Requests are configured to use only provider endpoints that OpenRouter marks as not collecting user data (<code>data_collection: deny</code>).</p>
+  <p>OpenRouter may process request metadata such as model, token counts, timing, and latency. Model providers necessarily process the submitted text to generate the requested analysis.</p>
+
+  <h2>What this service stores</h2>
+  <p>The Missing Question does not currently use a database and does not intentionally persist your project context, resolutions, or model responses after a request completes.</p>
+  <p>Infrastructure providers may process ordinary operational and security logs needed to run the service. The service is currently hosted on Render.</p>
+
+  <h2>Accounts and authentication</h2>
+  <p>The current public prototype does not require a The Missing Question account and does not use OAuth. ChatGPT, Codex, or another MCP client may separately process conversation context under that product's own terms and settings.</p>
+
+  <h2>Third-party services</h2>
+  <p>The service currently relies on:</p>
+  <ul>
+    <li>Render for application hosting.</li>
+    <li>OpenRouter for model routing and inference access.</li>
+    <li>A Nemotron model provider selected through OpenRouter under the configured data-policy restriction.</li>
+  </ul>
+  <p>Those providers operate under their own terms and privacy policies.</p>
+
+  <h2>Purpose and sharing</h2>
+  <p>Submitted content is used to provide the requested analysis and patch evaluation. The Missing Question does not sell user content or build advertising profiles from submitted project context.</p>
+
+  <h2>Retention and deletion</h2>
+  <p>Because this service does not intentionally store submitted project context in a database, there is no application-level conversation history to delete. If persistent storage is added later, this policy will be updated before that change is represented as part of the public service.</p>
+
+  <h2>Children</h2>
+  <p>The Missing Question is a developer tool and is not directed to children under 13.</p>
+
+  <h2>Changes</h2>
+  <p>This policy may change as the product gains features, providers, authentication, or storage. The current version and update date will remain available on this page.</p>
+
+  <h2>Contact and support</h2>
+  <p>For privacy questions, bug reports, or support, use the public project support page:</p>
+  <p><a href="https://github.com/TONZHub/the-missing-question/issues">github.com/TONZHub/the-missing-question/issues</a></p>
+
+  <p class="muted"><a href="/">&lt; RETURN_TO_TERMINAL.EXE</a></p>
+</main>
+</body>
+</html>
