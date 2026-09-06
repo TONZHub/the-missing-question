@@ -5,8 +5,49 @@
   const statusTextEl = document.getElementById("status-text");
   const resultEl = document.getElementById("result");
   const messageEl = document.getElementById("message");
+  const bootLogEl = document.getElementById("boot-log");
+  const runtimeStateEl = document.getElementById("runtime-state");
+  const yearEl = document.getElementById("system-year");
+
+  const POKE_LABEL = "[ POKE HOLES ] ── ONE QUESTION. HIGHEST LEVERAGE.";
+  const LOADING_MESSAGES = [
+    "SCANNING FOR FATAL FLAWS",
+    "LOCATING YOUR BLIND SPOTS",
+    "CONSULTING THE VOID",
+    "IDENTIFYING WRONG ASSUMPTIONS",
+    "PREPARING UNCOMFORTABLE TRUTH",
+  ];
+  const BOOT_LINES = [
+    "INITIALIZING ADVERSARIAL SUBSYSTEM...",
+    "LOADING ASSUMPTION DATABASE... OK",
+    "CALIBRATING SARCASM THRESHOLD... OK",
+    "COURAGE COMPUTER v4.1.9 READY.",
+    "> AWAITING INPUT_",
+  ];
 
   let currentConcern = null;
+  let loadingInterval = null;
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  yearEl.textContent = `[${new Date().getFullYear()}.SYS]`;
+
+  function boot() {
+    if (!bootLogEl) return;
+
+    if (reduceMotion) {
+      BOOT_LINES.forEach((line) => bootLogEl.appendChild(makeText("p", "", line)));
+      return;
+    }
+
+    let index = 0;
+    const next = () => {
+      if (index >= BOOT_LINES.length) return;
+      bootLogEl.appendChild(makeText("p", "", BOOT_LINES[index]));
+      index += 1;
+      window.setTimeout(next, 180 + Math.random() * 170);
+    };
+    window.setTimeout(next, 240);
+  }
 
   async function postJson(path, body) {
     const response = await fetch(path, {
@@ -28,10 +69,32 @@
     return payload;
   }
 
-  function setBusy(busy, text = "Poking holes…") {
-    statusTextEl.textContent = text;
-    statusEl.hidden = !busy;
+  function setBusy(busy, text = "SCANNING FOR FATAL FLAWS") {
     pokeBtn.disabled = busy;
+    contextEl.disabled = busy;
+    statusEl.hidden = !busy;
+
+    if (loadingInterval) {
+      window.clearInterval(loadingInterval);
+      loadingInterval = null;
+    }
+
+    if (busy) {
+      runtimeStateEl.textContent = "PROCESSING...";
+      let index = 0;
+      statusTextEl.textContent = `${text}...`;
+      pokeBtn.textContent = `${text}...`;
+
+      loadingInterval = window.setInterval(() => {
+        index = (index + 1) % LOADING_MESSAGES.length;
+        const message = LOADING_MESSAGES[index];
+        statusTextEl.textContent = `${message}...`;
+        pokeBtn.textContent = `${message}...`;
+      }, 620);
+    } else {
+      pokeBtn.textContent = POKE_LABEL;
+      runtimeStateEl.textContent = resultEl.hidden ? "AWAITING INPUT" : "QUERY COMPLETE";
+    }
   }
 
   function showMessage(kind, text) {
@@ -50,6 +113,7 @@
     currentConcern = null;
     resultEl.replaceChildren();
     resultEl.hidden = true;
+    runtimeStateEl.textContent = "AWAITING INPUT";
   }
 
   function makeText(tag, className, text) {
@@ -59,15 +123,53 @@
     return el;
   }
 
-  function makeMeta(label, value, extraClass = "") {
+  function makeMeta(label, value) {
     const wrapper = document.createElement("div");
     wrapper.className = "meta";
-
-    const labelEl = makeText("span", "meta-label", label);
-    const valueEl = makeText("p", `meta-value ${extraClass}`.trim(), value);
-
-    wrapper.append(labelEl, valueEl);
+    wrapper.append(
+      makeText("span", "meta-label", label),
+      makeText("p", "meta-value", value)
+    );
     return wrapper;
+  }
+
+  function typeQuestion(element, text, onDone) {
+    const finalText = `“${text}”`;
+
+    if (reduceMotion) {
+      element.textContent = finalText;
+      onDone();
+      return;
+    }
+
+    let index = 0;
+    element.textContent = "";
+    element.classList.add("typing-cursor");
+
+    const timer = window.setInterval(() => {
+      index += 1;
+      element.textContent = finalText.slice(0, index);
+      if (index >= finalText.length) {
+        window.clearInterval(timer);
+        element.classList.remove("typing-cursor");
+        onDone();
+      }
+    }, 18);
+  }
+
+  function createOutputHeader(filename, severity = "") {
+    const header = document.createElement("div");
+    header.className = "output-header";
+    header.appendChild(makeText("span", "", `OUTPUT ── ${filename}`));
+
+    if (severity) {
+      const sev = String(severity).toLowerCase();
+      header.appendChild(
+        makeText("span", `severity-${sev}`, `SEVERITY: ${sev.toUpperCase()}`)
+      );
+    }
+
+    return header;
   }
 
   function renderClear() {
@@ -76,16 +178,18 @@
     const card = document.createElement("article");
     card.className = "state-card";
     card.append(
-      makeText("h2", "", "✓ No hole worth stopping for. Carry on."),
+      makeText("h2", "", "✓ NO HOLE WORTH STOPPING FOR. CARRY ON."),
       makeText(
         "p",
         "",
-        "Nothing in this context currently justifies stopping your momentum."
-      )
+        "Nothing in this context currently justifies interrupting your momentum. Suspicious. Enjoy it while it lasts."
+      ),
+      makeText("p", "twit", "YOU TWIT.")
     );
 
     resultEl.appendChild(card);
     resultEl.hidden = false;
+    runtimeStateEl.textContent = "QUERY COMPLETE";
   }
 
   function renderConcern(concern) {
@@ -93,34 +197,52 @@
     currentConcern = { ...concern };
 
     const card = document.createElement("article");
-    card.className = "card";
+    card.className = "output-card";
+    card.appendChild(createOutputHeader("CRITICAL_VECTOR_IDENTIFIED.TXT", concern.severity));
 
-    const kicker = makeText("p", "card-kicker", "Missing Question");
-    const question = makeText("h2", "question", concern.question);
+    const body = document.createElement("div");
+    body.className = "output-body";
+    body.appendChild(makeText("p", "output-label", "> THE QUESTION YOU HAVEN'T ASKED:"));
 
-    const severity = String(concern.severity || "low").toLowerCase();
-    const grid = document.createElement("div");
-    grid.className = "meta-grid";
-    grid.append(
-      makeMeta("Assumption", concern.assumption),
-      makeMeta("Severity", severity, `severity-${severity}`),
-      makeMeta("Why now", concern.why_now),
-      makeMeta("What could break", concern.failure_if_ignored),
-      makeMeta("Evidence", concern.evidence)
+    const question = makeText("h2", "question", "");
+    body.appendChild(question);
+
+    const details = document.createElement("div");
+    details.className = "details";
+    details.append(
+      makeMeta("ASSUMPTION", concern.assumption),
+      makeMeta("WHY NOW", concern.why_now),
+      makeMeta("WHAT COULD BREAK", concern.failure_if_ignored),
+      makeMeta("EVIDENCE", concern.evidence)
     );
 
     const actions = document.createElement("div");
     actions.className = "card-actions";
 
-    const patchBtn = makeText("button", "secondary", "Did I patch the hole?");
+    const resetBtn = makeText("button", "secondary", "< RESET_QUERY.EXE");
+    resetBtn.type = "button";
+    resetBtn.addEventListener("click", resetQuery);
+
+    const patchBtn = makeText("button", "primary", "DID I PATCH THE HOLE?");
     patchBtn.type = "button";
     patchBtn.addEventListener("click", () => showPatchPanel(card));
 
-    actions.appendChild(patchBtn);
-    card.append(kicker, question, grid, actions);
+    actions.append(
+      resetBtn,
+      patchBtn,
+      makeText("span", "twit", "YOU TWIT.")
+    );
 
+    details.appendChild(actions);
+    body.appendChild(details);
+    card.appendChild(body);
     resultEl.appendChild(card);
     resultEl.hidden = false;
+    runtimeStateEl.textContent = "QUERY COMPLETE";
+
+    typeQuestion(question, concern.question, () => {
+      details.classList.add("visible");
+    });
   }
 
   function showPatchPanel(card) {
@@ -130,31 +252,32 @@
       return;
     }
 
+    const body = card.querySelector(".output-body");
     const panel = document.createElement("div");
     panel.className = "patch-panel";
 
-    const label = makeText("label", "", "How did you address it?");
+    const label = makeText("label", "", "> DESCRIBE_PATCH.TXT");
     label.htmlFor = "resolution";
 
     const textarea = document.createElement("textarea");
     textarea.id = "resolution";
     textarea.className = "resolution-input";
     textarea.placeholder =
-      "Describe the change, evidence, decision, test, fallback, or constraint that addresses the concern.";
+      "> tell the machine what changed, what you tested, or what evidence closes the hole_";
 
-    const submit = makeText("button", "primary", "Evaluate patch");
+    const submit = makeText("button", "primary", "[ EVALUATE PATCH ]");
     submit.type = "button";
     submit.addEventListener("click", async () => {
       const resolution = textarea.value.trim();
       if (!resolution) {
-        showMessage("error", "Tell me how you addressed the issue first.");
+        showMessage("error", "PATCH REJECTED: you have to actually type something, you twit.");
         textarea.focus();
         return;
       }
 
       hideMessage();
       submit.disabled = true;
-      setBusy(true, "Evaluating patch…");
+      setBusy(true, "EVALUATING YOUR EXCUSE");
 
       try {
         const evaluation = await postJson("/evaluate_patch", {
@@ -173,7 +296,7 @@
     });
 
     panel.append(label, textarea, submit);
-    card.appendChild(panel);
+    body.appendChild(panel);
     textarea.focus();
   }
 
@@ -185,14 +308,15 @@
     box.className = "patch-result";
 
     if (evaluation.result === "PATCHED") {
-      showMessage("success", "✓ Hole patched. Carry on.");
+      showMessage("success", "✓ HOLE PATCHED. CARRY ON.");
 
       const success = document.createElement("div");
       success.className = "remaining-question";
       success.style.borderLeftColor = "var(--success)";
       success.append(
-        makeText("strong", "", "✓ Hole patched. Carry on."),
-        makeText("p", "", evaluation.explanation)
+        makeText("strong", "", "✓ HOLE PATCHED. CARRY ON."),
+        makeText("p", "", evaluation.explanation),
+        makeText("p", "twit", "YOU TWIT.")
       );
       box.appendChild(success);
 
@@ -206,8 +330,8 @@
         evaluation.result === "PARTIALLY_PATCHED" ? "warning" : "error";
       const heading =
         evaluation.result === "PARTIALLY_PATCHED"
-          ? "⚠ Partial patch."
-          : "🚫 Original risk remains.";
+          ? "⚠ PARTIAL PATCH. NICE TRY."
+          : "🚫 STILL OPEN. SIT WITH IT.";
 
       showMessage(kind, heading);
 
@@ -216,27 +340,27 @@
       remaining.append(
         makeText("strong", "", heading),
         makeText("p", "", evaluation.explanation),
-        makeText("p", "", evaluation.remaining_question || "")
+        makeText("p", "", evaluation.remaining_question || ""),
+        makeText("p", "twit", "YOU TWIT.")
       );
       box.appendChild(remaining);
-
       textarea.focus();
     }
 
-    card.appendChild(box);
+    card.querySelector(".output-body").appendChild(box);
   }
 
   async function analyze() {
     const context = contextEl.value.trim();
     if (!context) {
-      showMessage("error", "Give me something to poke holes in first.");
+      showMessage("error", "INPUT ERROR: give me something to poke holes in first.");
       contextEl.focus();
       return;
     }
 
     hideMessage();
     clearResult();
-    setBusy(true, "Poking holes…");
+    setBusy(true, LOADING_MESSAGES[0]);
 
     try {
       const response = await postJson("/analyze_context", {
@@ -256,11 +380,21 @@
     }
   }
 
+  function resetQuery() {
+    hideMessage();
+    clearResult();
+    contextEl.disabled = false;
+    contextEl.focus();
+  }
+
   pokeBtn.addEventListener("click", analyze);
 
   contextEl.addEventListener("keydown", (event) => {
     if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+      event.preventDefault();
       analyze();
     }
   });
+
+  boot();
 })();
