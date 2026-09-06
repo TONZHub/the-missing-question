@@ -18,3 +18,8 @@ services:
 
       - key: NEMOTRON_API_KEY
         sync: false
+
+      # Fill this only when the OpenAI submission portal gives you a domain
+      # verification token. The app serves it verbatim at the required URL.
+      - key: OPENAI_APPS_CHALLENGE
+        sync: false
