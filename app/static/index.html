@@ -3,40 +3,86 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#020602">
   <title>The Missing Question</title>
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
-  <div class="shell">
-    <header class="hero">
-      <p class="eyebrow">ADVERSARIAL REASONING SIDECAR</p>
-      <h1>The Missing Question</h1>
-      <p class="subtitle">Guard your momentum, not your assumptions.</p>
+  <div class="terminal-root scanlines flicker">
+    <header class="top-bar" aria-label="System header">
+      <span>╔══ THE MISSING QUESTION ══ ADVERSARIAL.EXE ══╗</span>
+      <span id="system-year"></span>
     </header>
 
-    <main>
-      <section class="composer" aria-labelledby="context-label">
-        <label id="context-label" for="context">What are you building?</label>
-        <textarea
-          id="context"
-          maxlength="100000"
-          placeholder="Paste a product idea, architecture plan, PRD, implementation note, code diff, or decision…"
-        ></textarea>
+    <main class="terminal-layout">
+      <aside class="system-panel" aria-label="Adversarial system status">
+        <section class="face-panel">
+          <pre class="courage-face" aria-hidden="true"> ___________
+|  _______  |
+| | o   o | |
+| |   ^   | |
+| |  ___  | |
+| |_______| |
+|___________|</pre>
+          <div class="machine-stats">
+            <p>STATUS: ONLINE</p>
+            <p>MODE: ADVERSARIAL</p>
+            <p>MEMORY: DISABLED</p>
+            <p>MERCY: DISABLED</p>
+            <p class="machine-quote">"THE DUMBEST<br>THING I'VE EVER<br>HEARD."</p>
+          </div>
+        </section>
 
-        <div class="actions">
-          <button id="poke" type="button">Poke holes</button>
-          <span class="hint">One question. Highest leverage.</span>
-        </div>
+        <section class="boot-box" aria-label="Boot log">
+          <p class="panel-label">// BOOT LOG</p>
+          <div id="boot-log" class="boot-log" aria-live="polite"></div>
+        </section>
+      </aside>
+
+      <section class="terminal-main">
+        <header class="hero">
+          <h1>THE MISSING QUESTION</h1>
+          <p>── GUARD YOUR MOMENTUM, NOT YOUR ASSUMPTIONS ──</p>
+        </header>
+
+        <section class="input-section" aria-labelledby="command-label">
+          <p id="command-label" class="command-line">C:\&gt; DESCRIBE_PROJECT.EXE</p>
+
+          <div class="input-frame">
+            <div class="file-bar">
+              <span>INPUT.TXT</span>
+              <span>──</span>
+              <span>ENCODING: UTF-8</span>
+            </div>
+            <label class="sr-only" for="context">Describe your project</label>
+            <textarea
+              id="context"
+              maxlength="100000"
+              rows="6"
+              placeholder="> type here, then press Ctrl/Cmd + Enter or use the button below_"
+            ></textarea>
+          </div>
+
+          <button id="poke" class="poke-button" type="button">
+            [ POKE HOLES ] ── ONE QUESTION. HIGHEST LEVERAGE.
+          </button>
+          <p class="shortcut">CTRL/CMD + ↵ TO EXECUTE</p>
+        </section>
+
+        <section id="status" class="processing-status" hidden aria-live="polite">
+          <span class="status-square" aria-hidden="true"></span>
+          <span id="status-text">SCANNING FOR FATAL FLAWS...</span>
+        </section>
+
+        <section id="message" class="message" hidden aria-live="polite"></section>
+        <section id="result" class="result" hidden aria-live="polite"></section>
       </section>
-
-      <section id="status" class="status" hidden aria-live="polite">
-        <span class="status-dot" aria-hidden="true"></span>
-        <span id="status-text">Poking holes…</span>
-      </section>
-
-      <section id="message" class="message" hidden aria-live="polite"></section>
-      <section id="result" class="result" hidden aria-live="polite"></section>
     </main>
+
+    <footer class="bottom-bar">
+      <span>╚══ COURAGE COMPUTER SYSTEMS ══ v4.1.9 ══╝</span>
+      <span id="runtime-state">AWAITING INPUT</span>
+    </footer>
   </div>
 
   <script src="/static/app.js" defer></script>
