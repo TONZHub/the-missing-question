@@ -11,10 +11,10 @@ services:
 
     envVars:
       - key: NEMOTRON_API_URL
-        sync: false
+        value: https://openrouter.ai/api/v1/chat/completions
 
       - key: NEMOTRON_MODEL_NAME
-        sync: false
+        value: nvidia/nemotron-3.5-lightning
 
       - key: NEMOTRON_API_KEY
         sync: false
