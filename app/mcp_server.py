@@ -17,8 +17,8 @@ mcp = MCPServer(
         "security, privacy, dependency, product, or implementation decision. In sidecar "
         "mode, if the result is CLEAR, continue silently. If the result is POKE_HOLE, "
         "surface that one question before proceeding. Do not call poke_hole for trivial "
-        "or cheaply reversible changes. Use evaluate_patch after the builder explains how "
-        "they addressed a previously surfaced concern."
+        "or cheaply reversible changes. Use evaluate_patch_tool after the builder explains "
+        "how they addressed a previously surfaced concern."
     ),
 )
 
