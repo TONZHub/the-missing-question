@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -9,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 
 load_dotenv()
 
+from .mcp_server import mcp, mcp_app
 from .models import (
     AnalyzeRequest,
     AnalyzeResponse,
@@ -21,9 +24,19 @@ from .nemotron import NemotronError, analyze_context, evaluate_patch
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
 
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    # Mounted MCP sub-app lifespans are not run by Starlette/FastAPI. The host
+    # application must own the MCP session manager for the lifetime of the app.
+    async with mcp.session_manager.run():
+        yield
+
+
 app = FastAPI(
     title="The Missing Question",
     description="Adversarial reasoning sidecar for AI-assisted builders",
+    lifespan=lifespan,
 )
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
@@ -57,3 +70,8 @@ async def evaluate_patch_endpoint(req: EvaluatePatchRequest) -> PatchResponse:
         )
     except NemotronError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+# Keep this mount last. It catches the MCP protocol route at /mcp while the
+# web UI, REST API, docs, static assets, and health check above remain intact.
+app.mount("/", mcp_app)
