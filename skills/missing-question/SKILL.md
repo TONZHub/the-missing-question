@@ -28,6 +28,8 @@ If it returns `POKE_HOLE`, stop before committing to the dependent decision and 
 
 Do not add a second critique of your own. The value of this tool is one high-leverage interruption, not a list of generic concerns.
 
+The blocking question must test exactly one failure mode. Do not append optional improvements, extra modalities, roadmap ideas, best practices, or feature suggestions to the same question. If an adjacent idea would not change whether the core concern is valid, it is not part of the blocking question.
+
 ## Follow-up relevance loop
 
 If the builder pushes back, adds scope context, says a concern does not apply, or asks why it matters, call `follow_up` on the ORIGINAL concern before generating anything new.
@@ -40,6 +42,8 @@ If the builder pushes back, adds scope context, says a concern does not apply, o
 Do not turn one concern into a checklist of adjacent accessibility, safety, privacy, compliance, or edge-case requirements. These concerns matter only when grounded in the product scope, intended users, current stage, or a concrete obligation.
 
 Do not collapse `RESOLVED_BY_CONTEXT` into `OUT_OF_SCOPE`. The first means the question earned its keep and received a satisfactory answer; the second means it never materially belonged. Neither result permits another question about the same answered point.
+
+Any follow-up question must stay inside the original failure mode. Optional suggestions do not belong in `follow_up_question`.
 
 ## Patch loop
 
@@ -54,6 +58,8 @@ A patch may remove the original assumption entirely rather than proving it. That
 Use `resolution_basis` when explaining PATCHED: `IMPLEMENTED`, `CLARIFIED`, `ACCEPTED_TRADEOFF`, or `ASSUMPTION_REMOVED`. Do not translate a clarification or accepted tradeoff into “the concern was irrelevant.”
 
 If `evaluate_patch` also returns a `suggestion`, label it “May I suggest” and treat it as optional and non-blocking. It may improve the product, but it is not part of the original acceptance criterion, must not be repeated as a remaining question, and must not prevent progress after a `PATCHED` verdict.
+
+The question/suggestion boundary is strict: `remaining_question` contains only information necessary to resolve the original failure mode. `suggestion` contains only optional adjacent improvements. Never repeat the same idea in both. If removing a clause from the question would not change the verdict, move that clause to “May I suggest.”
 
 ## Manual scrutiny
 
