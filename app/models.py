@@ -43,6 +43,40 @@ class AnalyzeResponse(BaseModel):
         return self
 
 
+class FollowUpRequest(BaseModel):
+    original_concern: AnalyzeResponse
+    follow_up: str = Field(min_length=1, max_length=50_000)
+    updated_context: str = Field(default="", max_length=100_000)
+
+    @model_validator(mode="after")
+    def concern_must_be_hole(self) -> "FollowUpRequest":
+        if self.original_concern.status != "POKE_HOLE":
+            raise ValueError("original_concern must have status POKE_HOLE.")
+        return self
+
+
+class FollowUpResponse(BaseModel):
+    result: Literal["VALID_CONCERN", "OUT_OF_SCOPE", "NEEDS_CONTEXT"]
+    explanation: str = Field(min_length=1)
+    follow_up_question: str | None = None
+
+    @model_validator(mode="after")
+    def validate_shape(self) -> "FollowUpResponse":
+        if self.result == "OUT_OF_SCOPE":
+            self.follow_up_question = None
+            return self
+
+        if self.result == "NEEDS_CONTEXT":
+            if not self.follow_up_question or not self.follow_up_question.strip():
+                raise ValueError("NEEDS_CONTEXT responses must include one follow_up_question.")
+            return self
+
+        # VALID_CONCERN may include one sharper question, but it is optional.
+        if self.follow_up_question is not None and not self.follow_up_question.strip():
+            self.follow_up_question = None
+        return self
+
+
 class EvaluatePatchRequest(BaseModel):
     original_concern: AnalyzeResponse
     resolution: str = Field(min_length=1, max_length=50_000)
