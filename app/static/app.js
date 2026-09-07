@@ -33,7 +33,6 @@
 
   function boot() {
     if (!bootLogEl) return;
-
     if (reduceMotion) {
       BOOT_LINES.forEach((line) => bootLogEl.appendChild(makeText("p", "", line)));
       return;
@@ -57,7 +56,6 @@
     });
 
     const payload = await response.json().catch(() => null);
-
     if (!response.ok) {
       const detail =
         payload && typeof payload.detail === "string"
@@ -65,7 +63,6 @@
           : `Request failed with HTTP ${response.status}.`;
       throw new Error(detail);
     }
-
     return payload;
   }
 
@@ -135,7 +132,6 @@
 
   function typeQuestion(element, text, onDone) {
     const finalText = `“${text}”`;
-
     if (reduceMotion) {
       element.textContent = finalText;
       onDone();
@@ -145,7 +141,6 @@
     let index = 0;
     element.textContent = "";
     element.classList.add("typing-cursor");
-
     const timer = window.setInterval(() => {
       index += 1;
       element.textContent = finalText.slice(0, index);
@@ -168,13 +163,11 @@
         makeText("span", `severity-${sev}`, `SEVERITY: ${sev.toUpperCase()}`)
       );
     }
-
     return header;
   }
 
   function renderClear() {
     clearResult();
-
     const card = document.createElement("article");
     card.className = "state-card";
     card.append(
@@ -186,7 +179,6 @@
       ),
       makeText("p", "twit", "YOU TWIT.")
     );
-
     resultEl.appendChild(card);
     resultEl.hidden = false;
     runtimeStateEl.textContent = "QUERY COMPLETE";
@@ -223,12 +215,17 @@
     resetBtn.type = "button";
     resetBtn.addEventListener("click", resetQuery);
 
+    const followBtn = makeText("button", "secondary", "FOLLOW UP");
+    followBtn.type = "button";
+    followBtn.addEventListener("click", () => showFollowUpPanel(card));
+
     const patchBtn = makeText("button", "primary", "I'VE PATCHED IT!");
     patchBtn.type = "button";
     patchBtn.addEventListener("click", () => showPatchPanel(card));
 
     actions.append(
       resetBtn,
+      followBtn,
       patchBtn,
       makeText("span", "twit", "YOU TWIT.")
     );
@@ -245,8 +242,109 @@
     });
   }
 
+  function showFollowUpPanel(card) {
+    const existing = card.querySelector(".follow-up-panel");
+    if (existing) {
+      existing.querySelector("textarea")?.focus();
+      return;
+    }
+
+    const body = card.querySelector(".output-body");
+    const panel = document.createElement("div");
+    panel.className = "patch-panel follow-up-panel";
+
+    const label = makeText("label", "", "> CHALLENGE_SCOPE.TXT");
+    label.htmlFor = "follow-up";
+
+    const textarea = document.createElement("textarea");
+    textarea.id = "follow-up";
+    textarea.className = "resolution-input";
+    textarea.placeholder =
+      "> add context, push back, or explain why this concern may not belong in scope_";
+
+    const submit = makeText("button", "secondary", "[ CHECK RELEVANCE ]");
+    submit.type = "button";
+    submit.addEventListener("click", async () => {
+      const followUp = textarea.value.trim();
+      if (!followUp) {
+        showMessage("error", "FOLLOW-UP REJECTED: give the machine some context first.");
+        textarea.focus();
+        return;
+      }
+
+      hideMessage();
+      submit.disabled = true;
+      setBusy(true, "CHECKING WHETHER I OVERREACHED");
+
+      try {
+        const evaluation = await postJson("/follow_up", {
+          original_concern: currentConcern,
+          follow_up: followUp,
+          updated_context: contextEl.value,
+        });
+        renderFollowUpResult(evaluation, card, textarea);
+      } catch (error) {
+        showMessage("error", error.message);
+      } finally {
+        submit.disabled = false;
+        setBusy(false);
+      }
+    });
+
+    panel.append(label, textarea, submit);
+    body.appendChild(panel);
+    textarea.focus();
+  }
+
+  function renderFollowUpResult(evaluation, card, textarea) {
+    const oldResult = card.querySelector(".follow-up-result");
+    if (oldResult) oldResult.remove();
+
+    const box = document.createElement("div");
+    box.className = "patch-result follow-up-result";
+    const result = document.createElement("div");
+    result.className = "remaining-question";
+
+    if (evaluation.result === "OUT_OF_SCOPE") {
+      showMessage("success", "✓ OUT OF SCOPE. DROPPING IT.");
+      result.style.borderLeftColor = "var(--success)";
+      result.append(
+        makeText("strong", "", "✓ OUT OF SCOPE. DROPPING IT."),
+        makeText("p", "", evaluation.explanation)
+      );
+
+      const buttons = card.querySelectorAll(".card-actions button");
+      buttons.forEach((button) => {
+        if (button.textContent !== "< RESET_QUERY.EXE") button.disabled = true;
+      });
+      const panel = card.querySelector(".follow-up-panel");
+      if (panel) {
+        panel.querySelector("button").disabled = true;
+        panel.querySelector("textarea").disabled = true;
+      }
+    } else if (evaluation.result === "NEEDS_CONTEXT") {
+      showMessage("warning", "? NEEDS CONTEXT. ONE MORE THING.");
+      result.append(
+        makeText("strong", "", "? NEEDS CONTEXT. ONE MORE THING."),
+        makeText("p", "", evaluation.explanation),
+        makeText("p", "", evaluation.follow_up_question || "")
+      );
+      textarea.focus();
+    } else {
+      showMessage("warning", "⚠ CONCERN STILL APPLIES.");
+      result.append(
+        makeText("strong", "", "⚠ CONCERN STILL APPLIES."),
+        makeText("p", "", evaluation.explanation),
+        makeText("p", "", evaluation.follow_up_question || "")
+      );
+    }
+
+    box.appendChild(result);
+    card.querySelector(".output-body").appendChild(box);
+  }
+
   function showPatchPanel(card) {
-    const existing = card.querySelector(".patch-panel");
+    const existing = card.querySelector(".patch-panel:not(.follow-up-panel)");
     if (existing) {
       existing.querySelector("textarea")?.focus();
       return;
@@ -285,7 +383,6 @@
           resolution,
           updated_context: contextEl.value,
         });
-
         renderPatchResult(evaluation, card, textarea);
       } catch (error) {
         showMessage("error", error.message);
@@ -301,7 +398,7 @@
   }
 
   function renderPatchResult(evaluation, card, textarea) {
-    const oldResult = card.querySelector(".patch-result");
+    const oldResult = card.querySelector(".patch-result:not(.follow-up-result)");
     if (oldResult) oldResult.remove();
 
     const box = document.createElement("div");
@@ -309,7 +406,6 @@
 
     if (evaluation.result === "PATCHED") {
       showMessage("success", "✓ HOLE PATCHED. CARRY ON.");
-
       const success = document.createElement("div");
       success.className = "remaining-question";
       success.style.borderLeftColor = "var(--success)";
@@ -320,21 +416,19 @@
       );
       box.appendChild(success);
 
-      const panel = card.querySelector(".patch-panel");
+      const panel = card.querySelector(".patch-panel:not(.follow-up-panel)");
       if (panel) {
         panel.querySelector("button").disabled = true;
         panel.querySelector("textarea").disabled = true;
       }
     } else {
-      const kind =
-        evaluation.result === "PARTIALLY_PATCHED" ? "warning" : "error";
+      const kind = evaluation.result === "PARTIALLY_PATCHED" ? "warning" : "error";
       const heading =
         evaluation.result === "PARTIALLY_PATCHED"
           ? "⚠ PARTIAL PATCH. NICE TRY."
           : "🚫 STILL OPEN. SIT WITH IT.";
 
       showMessage(kind, heading);
-
       const remaining = document.createElement("div");
       remaining.className = "remaining-question";
       remaining.append(
@@ -368,11 +462,8 @@
         mode: "manual",
       });
 
-      if (response.status === "CLEAR") {
-        renderClear();
-      } else {
-        renderConcern(response);
-      }
+      if (response.status === "CLEAR") renderClear();
+      else renderConcern(response);
     } catch (error) {
       showMessage("error", error.message);
     } finally {
@@ -388,7 +479,6 @@
   }
 
   pokeBtn.addEventListener("click", analyze);
-
   contextEl.addEventListener("keydown", (event) => {
     if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
       event.preventDefault();
