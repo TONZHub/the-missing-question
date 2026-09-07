@@ -56,13 +56,18 @@ class FollowUpRequest(BaseModel):
 
 
 class FollowUpResponse(BaseModel):
-    result: Literal["VALID_CONCERN", "OUT_OF_SCOPE", "NEEDS_CONTEXT"]
+    result: Literal[
+        "VALID_CONCERN",
+        "RESOLVED_BY_CONTEXT",
+        "OUT_OF_SCOPE",
+        "NEEDS_CONTEXT",
+    ]
     explanation: str = Field(min_length=1)
     follow_up_question: str | None = None
 
     @model_validator(mode="after")
     def validate_shape(self) -> "FollowUpResponse":
-        if self.result == "OUT_OF_SCOPE":
+        if self.result in {"RESOLVED_BY_CONTEXT", "OUT_OF_SCOPE"}:
             self.follow_up_question = None
             return self
 
@@ -94,6 +99,12 @@ class PatchResponse(BaseModel):
     explanation: str = Field(min_length=1)
     remaining_question: str | None = None
     suggestion: str | None = None
+    resolution_basis: Literal[
+        "IMPLEMENTED",
+        "CLARIFIED",
+        "ACCEPTED_TRADEOFF",
+        "ASSUMPTION_REMOVED",
+    ] | None = None
 
     @model_validator(mode="after")
     def validate_shape(self) -> "PatchResponse":
@@ -102,7 +113,11 @@ class PatchResponse(BaseModel):
 
         if self.result == "PATCHED":
             self.remaining_question = None
+            if self.resolution_basis is None:
+                raise ValueError("PATCHED responses must identify a resolution_basis.")
             return self
+
+        self.resolution_basis = None
 
         if not self.remaining_question or not self.remaining_question.strip():
             raise ValueError(

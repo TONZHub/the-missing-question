@@ -33,10 +33,13 @@ Do not add a second critique of your own. The value of this tool is one high-lev
 If the builder pushes back, adds scope context, says a concern does not apply, or asks why it matters, call `follow_up` on the ORIGINAL concern before generating anything new.
 
 - `VALID_CONCERN`: explain why the original concern still applies. Surface at most the one returned sharper question.
+- `RESOLVED_BY_CONTEXT`: close the concern and continue. Say that the concern was useful, then briefly name the clarification, recovery path, removed assumption, or accepted tradeoff that resolved it.
 - `OUT_OF_SCOPE`: drop the concern and continue. Do not replace it with another critique.
 - `NEEDS_CONTEXT`: ask exactly the one returned clarifying question.
 
 Do not turn one concern into a checklist of adjacent accessibility, safety, privacy, compliance, or edge-case requirements. These concerns matter only when grounded in the product scope, intended users, current stage, or a concrete obligation.
+
+Do not collapse `RESOLVED_BY_CONTEXT` into `OUT_OF_SCOPE`. The first means the question earned its keep and received a satisfactory answer; the second means it never materially belonged. Neither result permits another question about the same answered point.
 
 ## Patch loop
 
@@ -48,7 +51,9 @@ After the builder explains how they addressed a valid concern, call `evaluate_pa
 
 A patch may remove the original assumption entirely rather than proving it. That still counts as patched when the original failure mode no longer applies.
 
-If `evaluate_patch` also returns a `suggestion`, treat it as optional and non-blocking. It may improve the product, but it is not part of the original acceptance criterion and must not prevent progress after a `PATCHED` verdict.
+Use `resolution_basis` when explaining PATCHED: `IMPLEMENTED`, `CLARIFIED`, `ACCEPTED_TRADEOFF`, or `ASSUMPTION_REMOVED`. Do not translate a clarification or accepted tradeoff into “the concern was irrelevant.”
+
+If `evaluate_patch` also returns a `suggestion`, label it “May I suggest” and treat it as optional and non-blocking. It may improve the product, but it is not part of the original acceptance criterion, must not be repeated as a remaining question, and must not prevent progress after a `PATCHED` verdict.
 
 ## Manual scrutiny
 

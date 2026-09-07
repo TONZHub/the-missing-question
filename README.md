@@ -7,7 +7,9 @@ A developer-focused adversarial reasoning sidecar. Paste a product idea, archite
 - `CLEAR`, or
 - one `POKE_HOLE` containing the single highest-leverage unanswered question.
 
-The follow-up flow evaluates whether the builder actually patched the concern.
+The follow-up flow separates concerns that never applied (`OUT_OF_SCOPE`) from useful
+concerns closed by clarification or an accepted tradeoff (`RESOLVED_BY_CONTEXT`). Patch
+evaluation stays fixed on the original criterion and keeps optional advice outside the verdict.
 
 ## Project structure
 
@@ -121,6 +123,10 @@ or:
   "updated_context": "The product now supports a degraded local-only workflow when permission is denied."
 }
 ```
+
+`PATCHED` responses include a `resolution_basis` explaining whether the concern was
+implemented, clarified, accepted as a bounded tradeoff, or closed by removing its assumption.
+They may also contain one optional `suggestion`; it does not alter the verdict.
 
 ## Google Cloud Run
 

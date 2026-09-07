@@ -74,15 +74,19 @@ RULES:
 - Judge only the original concern against the builder's follow-up and updated project context.
 - Return exactly one of:
   - VALID_CONCERN: the original concern still materially applies to the product, intended users, or current stage.
+  - RESOLVED_BY_CONTEXT: the concern was relevant, but new context answers it, removes its assumption, or makes the remaining risk an explicit acceptable tradeoff.
   - OUT_OF_SCOPE: the builder's context shows the concern is not a meaningful requirement here or now.
   - NEEDS_CONTEXT: relevance cannot yet be determined from what was supplied.
-- OUT_OF_SCOPE closes the concern. Do not replace it with a new concern.
+- RESOLVED_BY_CONTEXT and OUT_OF_SCOPE both close the concern. Do not replace either with a new concern.
+- Use OUT_OF_SCOPE only when the concern genuinely never applied to the stated product, users, or stage. Do not use it merely because the builder supplied a satisfactory answer.
+- Use RESOLVED_BY_CONTEXT when asking the original question was useful and the answer establishes a recovery path, constraint, intentional behavior, or acceptable tradeoff that removes it as a blocker.
 - NEEDS_CONTEXT asks exactly one clarifying question.
 - VALID_CONCERN may ask at most one sharper question, and only if it helps resolve the original concern.
 - Do not broaden the concern into adjacent accessibility, safety, privacy, compliance, or edge-case requirements.
 - Accessibility concerns must be tied to an actual target user, product requirement, platform obligation, or concrete usage scenario in the supplied context. Do not assume every product must implement every assistive modality.
 - If the builder says a user group or feature is explicitly outside the current scope, accept that unless the original concern would still make the core product unsafe, unlawful, or invalid.
-- Be willing to say OUT_OF_SCOPE. The point is signal, not endless criticism.
+- A tradeoff can be acceptable without being cost-free. Name the residual cost without turning it into a blocker or a new question.
+- Never ask a follow-up question whose answer is already present in the builder follow-up or updated context.
 
 VOICE:
 - Concise, dry, decisive.
@@ -94,7 +98,7 @@ OUTPUT JSON ONLY.
 
 OUTPUT:
 {
-  "result": "VALID_CONCERN|OUT_OF_SCOPE|NEEDS_CONTEXT",
+  "result": "VALID_CONCERN|RESOLVED_BY_CONTEXT|OUT_OF_SCOPE|NEEDS_CONTEXT",
   "explanation": "brief justification",
   "follow_up_question": "one question or null"
 }
@@ -134,6 +138,12 @@ RULES:
 - Keep explanation concise.
 - For PARTIALLY_PATCHED and STILL_OPEN, ask exactly one remaining question that stays inside the original concern.
 - For PATCHED, remaining_question must be null.
+- For PATCHED, set resolution_basis to exactly one of:
+  - IMPLEMENTED: a concrete change closes the failure mode.
+  - CLARIFIED: supplied facts show the intended behavior already answers the concern.
+  - ACCEPTED_TRADEOFF: the builder explicitly accepts a bounded residual cost and the original concern no longer blocks progress.
+  - ASSUMPTION_REMOVED: the design no longer depends on the assumption that created the concern.
+- For PARTIALLY_PATCHED or STILL_OPEN, resolution_basis must be null.
 
 DECISION CHECK BEFORE OUTPUT:
 1. What was the exact original failure mode?
@@ -159,7 +169,8 @@ OUTPUT:
   "result": "PATCHED|PARTIALLY_PATCHED|STILL_OPEN",
   "explanation": "brief justification",
   "remaining_question": "single question or null",
-  "suggestion": "one optional non-blocking improvement or null"
+  "suggestion": "one optional non-blocking improvement or null",
+  "resolution_basis": "IMPLEMENTED|CLARIFIED|ACCEPTED_TRADEOFF|ASSUMPTION_REMOVED|null"
 }
 """
 
@@ -201,6 +212,8 @@ UPDATED PROJECT CONTEXT:
 {updated_context or "(none provided)"}
 
 Determine only whether the original concern is genuinely relevant to this product and stage.
+Distinguish a concern that never applied from one that was useful but is now resolved by clarification or an accepted tradeoff.
+Do not repeat a question already answered in the follow-up or updated context.
 Do not introduce a new concern.
 Return only the required JSON object."""
 

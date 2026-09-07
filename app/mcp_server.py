@@ -25,7 +25,9 @@ mcp = MCPServer(
         "proceeding. Do not invoke it for trivial or cheaply reversible changes. If the builder "
         "pushes back, adds scope context, or asks whether the concern really applies, use "
         "follow_up before inventing any new concern. After the builder addresses a valid concern, "
-        "use evaluate_patch to verify whether the original hole is actually closed."
+        "use evaluate_patch to verify whether the original hole is actually closed. Treat "
+        "RESOLVED_BY_CONTEXT as a successful close, distinct from a concern that was genuinely "
+        "OUT_OF_SCOPE. Suggestions are optional and never alter a verdict."
     ),
 )
 
@@ -73,8 +75,10 @@ def follow_up(
 ) -> dict[str, Any]:
     """Test whether the original concern remains relevant after new scope context.
 
-    Returns VALID_CONCERN, OUT_OF_SCOPE, or NEEDS_CONTEXT. This tool must stay on the
-    original concern and must not generate a new critique list.
+    Returns VALID_CONCERN, RESOLVED_BY_CONTEXT, OUT_OF_SCOPE, or NEEDS_CONTEXT.
+    RESOLVED_BY_CONTEXT means the concern was useful but clarification or an accepted
+    tradeoff closed it; OUT_OF_SCOPE means it never materially applied. This tool must
+    stay on the original concern and must not generate a new critique list.
     """
     original_concern = {
         "status": "POKE_HOLE",
@@ -115,7 +119,12 @@ def evaluate_patch(
     resolution: str,
     updated_context: str = "",
 ) -> dict[str, Any]:
-    """Verify whether a builder actually patched a previously surfaced concern."""
+    """Verify the original concern without repeating answers or introducing new criteria.
+
+    A PATCHED result identifies whether the concern was implemented, clarified, closed by
+    an accepted tradeoff, or had its assumption removed. Any suggestion is optional advice
+    outside the verdict and must not be treated as a remaining requirement.
+    """
     original_concern = {
         "status": "POKE_HOLE",
         "question": question,

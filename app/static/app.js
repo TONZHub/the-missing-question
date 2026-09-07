@@ -322,6 +322,23 @@
         panel.querySelector("button").disabled = true;
         panel.querySelector("textarea").disabled = true;
       }
+    } else if (evaluation.result === "RESOLVED_BY_CONTEXT") {
+      showMessage("success", "✓ RESOLVED BY CONTEXT. CARRY ON.");
+      result.style.borderLeftColor = "var(--success)";
+      result.append(
+        makeText("strong", "", "✓ RESOLVED BY CONTEXT. CARRY ON."),
+        makeText("p", "", evaluation.explanation)
+      );
+
+      const buttons = card.querySelectorAll(".card-actions button");
+      buttons.forEach((button) => {
+        if (button.textContent !== "< RESET_QUERY.EXE") button.disabled = true;
+      });
+      const panel = card.querySelector(".follow-up-panel");
+      if (panel) {
+        panel.querySelector("button").disabled = true;
+        panel.querySelector("textarea").disabled = true;
+      }
     } else if (evaluation.result === "NEEDS_CONTEXT") {
       showMessage("warning", "? NEEDS CONTEXT. ONE MORE THING.");
       result.append(
@@ -406,11 +423,18 @@
 
     if (evaluation.result === "PATCHED") {
       showMessage("success", "✓ HOLE PATCHED. CARRY ON.");
+      const basisLabels = {
+        IMPLEMENTED: "CLOSED BY IMPLEMENTATION",
+        CLARIFIED: "CLOSED BY CLARIFICATION",
+        ACCEPTED_TRADEOFF: "CLOSED AS AN ACCEPTED TRADEOFF",
+        ASSUMPTION_REMOVED: "CLOSED BY REMOVING THE ASSUMPTION",
+      };
       const success = document.createElement("div");
       success.className = "remaining-question";
       success.style.borderLeftColor = "var(--success)";
       success.append(
         makeText("strong", "", "✓ HOLE PATCHED. CARRY ON."),
+        makeText("p", "", basisLabels[evaluation.resolution_basis] || "ORIGINAL CONCERN CLOSED"),
         makeText("p", "", evaluation.explanation),
         makeText("p", "twit", "YOU TWIT.")
       );

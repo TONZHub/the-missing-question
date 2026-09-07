@@ -39,7 +39,14 @@ When no interruption is warranted:
 {"status":"CLEAR"}
 ```
 
-### `evaluate_patch_tool`
+### `follow_up`
+
+Re-checks only the original concern after the builder supplies scope or architecture context.
+It distinguishes `OUT_OF_SCOPE` (the concern never materially applied) from
+`RESOLVED_BY_CONTEXT` (the concern was legitimate, but clarification, a recovery path,
+or an accepted tradeoff closed it). It must not repeat an answered question.
+
+### `evaluate_patch`
 
 Checks whether a builder's proposed resolution actually closes a previously surfaced concern.
 
@@ -54,11 +61,15 @@ It returns one of:
 - `PARTIALLY_PATCHED`
 - `STILL_OPEN`
 
+A `PATCHED` response includes `resolution_basis`: `IMPLEMENTED`, `CLARIFIED`,
+`ACCEPTED_TRADEOFF`, or `ASSUMPTION_REMOVED`. An optional `suggestion` is outside
+the verdict and never becomes a remaining requirement.
+
 ## Agent behavior
 
 Recommended host-agent instruction:
 
-> Use The Missing Question before consequential architectural decisions, new external dependencies, privacy/security choices, expensive implementation paths, or changes that create substantial downstream reliance on an unverified assumption. Call `poke_hole` with `mode="sidecar"`. If it returns `CLEAR`, continue silently. If it returns `POKE_HOLE`, surface the single question before proceeding. Do not invoke it for trivial or cheaply reversible changes. After the builder addresses a concern, call `evaluate_patch_tool` to verify whether the hole is actually patched.
+> Use The Missing Question before consequential architectural decisions, new external dependencies, privacy/security choices, expensive implementation paths, or changes that create substantial downstream reliance on an unverified assumption. Call `poke_hole` with `mode="sidecar"`. If it returns `CLEAR`, continue silently. If it returns `POKE_HOLE`, surface the single question before proceeding. Do not invoke it for trivial or cheaply reversible changes. Use `follow_up` for new relevance context and preserve the distinction between `OUT_OF_SCOPE` and `RESOLVED_BY_CONTEXT`. After the builder addresses a concern, call `evaluate_patch` to verify whether the hole is actually patched. Never treat `suggestion` as part of the verdict.
 
 ## Render
 

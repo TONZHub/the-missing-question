@@ -54,7 +54,12 @@ FOLLOW_UP_SCHEMA: dict[str, Any] = {
     "properties": {
         "result": {
             "type": "string",
-            "enum": ["VALID_CONCERN", "OUT_OF_SCOPE", "NEEDS_CONTEXT"],
+            "enum": [
+                "VALID_CONCERN",
+                "RESOLVED_BY_CONTEXT",
+                "OUT_OF_SCOPE",
+                "NEEDS_CONTEXT",
+            ],
         },
         "explanation": {"type": "string"},
         "follow_up_question": {"type": ["string", "null"]},
@@ -74,8 +79,24 @@ PATCH_SCHEMA: dict[str, Any] = {
         "explanation": {"type": "string"},
         "remaining_question": {"type": ["string", "null"]},
         "suggestion": {"type": ["string", "null"]},
+        "resolution_basis": {
+            "type": ["string", "null"],
+            "enum": [
+                "IMPLEMENTED",
+                "CLARIFIED",
+                "ACCEPTED_TRADEOFF",
+                "ASSUMPTION_REMOVED",
+                None,
+            ],
+        },
     },
-    "required": ["result", "explanation", "remaining_question", "suggestion"],
+    "required": [
+        "result",
+        "explanation",
+        "remaining_question",
+        "suggestion",
+        "resolution_basis",
+    ],
     "additionalProperties": False,
 }
 
@@ -214,7 +235,9 @@ def _normalize_follow_up(data: dict[str, Any]) -> dict[str, Any]:
         "result": result,
         "explanation": data.get("explanation"),
         "follow_up_question": (
-            None if result == "OUT_OF_SCOPE" else data.get("follow_up_question")
+            None
+            if result in {"RESOLVED_BY_CONTEXT", "OUT_OF_SCOPE"}
+            else data.get("follow_up_question")
         ),
     }
 
@@ -226,6 +249,7 @@ def _normalize_patch(data: dict[str, Any]) -> dict[str, Any]:
         "explanation": data.get("explanation"),
         "remaining_question": None if result == "PATCHED" else data.get("remaining_question"),
         "suggestion": data.get("suggestion"),
+        "resolution_basis": data.get("resolution_basis") if result == "PATCHED" else None,
     }
 
 
