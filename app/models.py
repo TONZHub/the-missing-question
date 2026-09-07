@@ -93,9 +93,13 @@ class PatchResponse(BaseModel):
     result: Literal["PATCHED", "PARTIALLY_PATCHED", "STILL_OPEN"]
     explanation: str = Field(min_length=1)
     remaining_question: str | None = None
+    suggestion: str | None = None
 
     @model_validator(mode="after")
     def validate_shape(self) -> "PatchResponse":
+        if self.suggestion is not None and not self.suggestion.strip():
+            self.suggestion = None
+
         if self.result == "PATCHED":
             self.remaining_question = None
             return self
