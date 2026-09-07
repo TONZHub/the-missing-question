@@ -1,6 +1,6 @@
 ---
 name: missing-question
-description: Use The Missing Question MCP sidecar to challenge high-leverage assumptions before consequential project decisions and to verify whether those concerns were actually patched.
+description: Use The Missing Question MCP sidecar to challenge high-leverage assumptions before consequential project decisions, test whether concerns are actually in scope, and verify whether valid concerns were patched.
 ---
 
 # The Missing Question
@@ -24,13 +24,23 @@ Do not call it for trivial edits, routine refactors, formatting, cheaply reversi
 
 If `poke_hole` returns `CLEAR`, continue silently. Do not announce that a check occurred unless the user asks.
 
-If it returns `POKE_HOLE`, stop before committing to the dependent decision and surface the single returned question. Preserve the returned assumption, why-now rationale, severity, failure mode, and evidence so they can be passed to `evaluate_patch` later.
+If it returns `POKE_HOLE`, stop before committing to the dependent decision and surface the single returned question. Preserve the returned assumption, why-now rationale, severity, failure mode, and evidence so they can be passed to `follow_up` or `evaluate_patch` later.
 
 Do not add a second critique of your own. The value of this tool is one high-leverage interruption, not a list of generic concerns.
 
+## Follow-up relevance loop
+
+If the builder pushes back, adds scope context, says a concern does not apply, or asks why it matters, call `follow_up` on the ORIGINAL concern before generating anything new.
+
+- `VALID_CONCERN`: explain why the original concern still applies. Surface at most the one returned sharper question.
+- `OUT_OF_SCOPE`: drop the concern and continue. Do not replace it with another critique.
+- `NEEDS_CONTEXT`: ask exactly the one returned clarifying question.
+
+Do not turn one concern into a checklist of adjacent accessibility, safety, privacy, compliance, or edge-case requirements. These concerns matter only when grounded in the product scope, intended users, current stage, or a concrete obligation.
+
 ## Patch loop
 
-After the builder explains how they addressed the concern, call `evaluate_patch` using the original concern fields plus the builder's resolution and any updated context.
+After the builder explains how they addressed a valid concern, call `evaluate_patch` using the original concern fields plus the builder's resolution and any updated context.
 
 - `PATCHED`: continue with the work.
 - `PARTIALLY_PATCHED`: surface the one remaining question and wait for a real resolution before relying on the assumption.
@@ -44,4 +54,4 @@ When the user explicitly asks to "poke holes", "stress-test this", "find the mis
 
 ## Tone
 
-Keep the interruption concise. The connector is a checkpoint, not a lecture. Let The Missing Question provide the adversarial framing; the host agent should remain useful and continue immediately once the hole is genuinely patched.
+Keep the interruption concise. The connector is a checkpoint, not a lecture. Let The Missing Question provide the adversarial framing; the host agent should remain useful and continue immediately once a concern is dismissed as out of scope or genuinely patched.
