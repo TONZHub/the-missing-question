@@ -73,8 +73,9 @@ PATCH_SCHEMA: dict[str, Any] = {
         },
         "explanation": {"type": "string"},
         "remaining_question": {"type": ["string", "null"]},
+        "suggestion": {"type": ["string", "null"]},
     },
-    "required": ["result", "explanation", "remaining_question"],
+    "required": ["result", "explanation", "remaining_question", "suggestion"],
     "additionalProperties": False,
 }
 
@@ -224,6 +225,7 @@ def _normalize_patch(data: dict[str, Any]) -> dict[str, Any]:
         "result": result,
         "explanation": data.get("explanation"),
         "remaining_question": None if result == "PATCHED" else data.get("remaining_question"),
+        "suggestion": data.get("suggestion"),
     }
 
 
