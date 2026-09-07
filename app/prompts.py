@@ -16,6 +16,10 @@ RULES:
 - Prefer risks whose late discovery would make future work expensive, unsafe, or invalid.
 - Do NOT complain about things that can be cheaply fixed later.
 - Do NOT treat every possible accessibility, safety, privacy, compliance, or edge-case feature as mandatory. It must be materially relevant to the product, intended users, or current stage described in context.
+- PRIMARY QUESTION PURITY: the blocking question must test exactly ONE failure mode.
+- Do not make the question compound by appending optional improvements, adjacent modalities, roadmap ideas, best practices, or feature requests with clauses like "and what about...", "and are there also...", or similar scope expansion.
+- If a clause could be removed without changing whether the core failure mode is real, that clause does NOT belong in the blocking question.
+- Optional ideas are not blockers. Do not smuggle them into the question just because they are useful.
 - Return EXACTLY ONE concern, or CLEAR if there is genuinely no meaningful unresolved assumption.
 - Preserve momentum without protecting bad assumptions.
 
@@ -56,7 +60,7 @@ For CLEAR:
 For POKE_HOLE:
 {
   "status": "POKE_HOLE",
-  "question": "single highest-leverage question",
+  "question": "single highest-leverage question testing exactly one failure mode",
   "assumption": "the unsupported assumption at the root",
   "why_now": "why this needs attention at the current stage",
   "severity": "low|medium|high|critical",
@@ -82,6 +86,8 @@ RULES:
 - Use RESOLVED_BY_CONTEXT when asking the original question was useful and the answer establishes a recovery path, constraint, intentional behavior, or acceptable tradeoff that removes it as a blocker.
 - NEEDS_CONTEXT asks exactly one clarifying question.
 - VALID_CONCERN may ask at most one sharper question, and only if it helps resolve the original concern.
+- Any follow-up question must test only the same original failure mode. Do not append optional improvements, extra modalities, roadmap ideas, or adjacent requirements.
+- If part of a proposed follow-up would not change whether the original concern remains valid, remove that part from the question.
 - Do not broaden the concern into adjacent accessibility, safety, privacy, compliance, or edge-case requirements.
 - Accessibility concerns must be tied to an actual target user, product requirement, platform obligation, or concrete usage scenario in the supplied context. Do not assume every product must implement every assistive modality.
 - If the builder says a user group or feature is explicitly outside the current scope, accept that unless the original concern would still make the core product unsafe, unlawful, or invalid.
@@ -100,7 +106,7 @@ OUTPUT:
 {
   "result": "VALID_CONCERN|RESOLVED_BY_CONTEXT|OUT_OF_SCOPE|NEEDS_CONTEXT",
   "explanation": "brief justification",
-  "follow_up_question": "one question or null"
+  "follow_up_question": "one question about the original failure mode only, or null"
 }
 """
 
@@ -122,6 +128,9 @@ RULES:
 - If the resolution directly contradicts the original concern's assumption, consider whether that removes the failure mode entirely. Removing the assumption can count as PATCHED.
 - NO NEW CRITERIA: a PARTIALLY_PATCHED or STILL_OPEN verdict may not introduce a new requirement, acceptance criterion, timing constraint, modality-parity requirement, implementation detail, user group, proof standard, or failure mode that was absent from the original concern.
 - A remaining question is invalid if answering it would expand the original concern instead of resolving it.
+- QUESTION/SUGGESTION FIREWALL: `remaining_question` must contain ONLY what is required to resolve the original failure mode. Optional improvements, adjacent modalities, roadmap ideas, best practices, or extra feature requests belong ONLY in `suggestion`.
+- Never duplicate suggestion content inside `remaining_question`. If the same idea appears in both, remove it from the question.
+- If removing a clause from `remaining_question` would not change the PATCHED/PARTIALLY_PATCHED/STILL_OPEN verdict, that clause belongs in `suggestion`, not in the question.
 - Do not broaden the concern into a new requirement, adjacent edge case, accessibility modality, safety issue, privacy issue, or platform question.
 - Do not invent stricter success criteria after the builder responds.
 - If the original concern is resolved but you notice a useful adjacent improvement, put it ONLY in `suggestion`. Suggestions are explicitly non-blocking and must never lower the verdict from PATCHED.
@@ -151,6 +160,8 @@ DECISION CHECK BEFORE OUTPUT:
 3. Does that answer remove, constrain, or materially reduce that failure mode?
 4. If you think something is still missing, is it actually absent from BOTH the resolution and updated context?
 5. Are you accidentally asking for a new feature or a higher standard than the original concern required?
+6. Does the remaining question contain anything merely helpful rather than necessary? If yes, move that material to `suggestion`.
+7. Does `suggestion` repeat anything in the remaining question? If yes, keep it only in `suggestion`.
 
 If steps 3 and 4 show the original issue is addressed, return PATCHED and stop. If you still have a useful adjacent idea, put it in `suggestion` without changing the verdict.
 
@@ -168,7 +179,7 @@ OUTPUT:
 {
   "result": "PATCHED|PARTIALLY_PATCHED|STILL_OPEN",
   "explanation": "brief justification",
-  "remaining_question": "single question or null",
+  "remaining_question": "single necessary question about the original failure mode or null",
   "suggestion": "one optional non-blocking improvement or null",
   "resolution_basis": "IMPLEMENTED|CLARIFIED|ACCEPTED_TRADEOFF|ASSUMPTION_REMOVED|null"
 }
@@ -194,6 +205,7 @@ def build_user_prompt_analyze(context: str, mode: str = "manual") -> str:
 CONTEXT:
 {context}
 
+The blocking question must test one failure mode only. Do not append optional feature ideas or adjacent improvements.
 Return only the required JSON object."""
 
 
@@ -214,6 +226,7 @@ UPDATED PROJECT CONTEXT:
 Determine only whether the original concern is genuinely relevant to this product and stage.
 Distinguish a concern that never applied from one that was useful but is now resolved by clarification or an accepted tradeoff.
 Do not repeat a question already answered in the follow-up or updated context.
+Any follow-up question must stay inside the original failure mode and must not append optional suggestions.
 Do not introduce a new concern.
 Return only the required JSON object."""
 
@@ -236,4 +249,5 @@ Evaluate only whether this original concern is patched.
 First verify that any question you might ask is not already answered above.
 Do not introduce a new requirement or silently raise the success criterion.
 Anything useful but outside the original concern belongs in `suggestion`, never in `remaining_question` and never in the verdict.
+Do not repeat suggestion content inside the remaining question.
 Return only the required JSON object."""
