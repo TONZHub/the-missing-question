@@ -17,9 +17,11 @@ from .models import (
     AnalyzeRequest,
     AnalyzeResponse,
     EvaluatePatchRequest,
+    FollowUpRequest,
+    FollowUpResponse,
     PatchResponse,
 )
-from .nemotron import NemotronError, analyze_context, evaluate_patch
+from .nemotron import NemotronError, analyze_context, evaluate_follow_up, evaluate_patch
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -66,7 +68,6 @@ async def openai_apps_challenge() -> PlainTextResponse:
     token = os.getenv("OPENAI_APPS_CHALLENGE", "").strip()
     if not token:
         raise HTTPException(status_code=404, detail="Challenge token not configured")
-    # The submission portal requires the response body to contain only the token.
     return PlainTextResponse(token, media_type="text/plain")
 
 
@@ -83,6 +84,18 @@ async def analyze_context_endpoint(req: AnalyzeRequest) -> AnalyzeResponse:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
+@app.post("/follow_up", response_model=FollowUpResponse)
+async def follow_up_endpoint(req: FollowUpRequest) -> FollowUpResponse:
+    try:
+        return evaluate_follow_up(
+            original_concern=req.original_concern.model_dump(),
+            follow_up=req.follow_up.strip(),
+            updated_context=req.updated_context,
+        )
+    except NemotronError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
 @app.post("/evaluate_patch", response_model=PatchResponse)
 async def evaluate_patch_endpoint(req: EvaluatePatchRequest) -> PatchResponse:
     try:
@@ -95,6 +108,4 @@ async def evaluate_patch_endpoint(req: EvaluatePatchRequest) -> PatchResponse:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
-# Keep this mount last. It catches the MCP protocol route at /mcp while the
-# web UI, policy pages, REST API, static assets, and health check remain intact.
 app.mount("/", mcp_app)
