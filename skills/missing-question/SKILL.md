@@ -48,6 +48,8 @@ After the builder explains how they addressed a valid concern, call `evaluate_pa
 
 A patch may remove the original assumption entirely rather than proving it. That still counts as patched when the original failure mode no longer applies.
 
+If `evaluate_patch` also returns a `suggestion`, treat it as optional and non-blocking. It may improve the product, but it is not part of the original acceptance criterion and must not prevent progress after a `PATCHED` verdict.
+
 ## Manual scrutiny
 
 When the user explicitly asks to "poke holes", "stress-test this", "find the missing question", or otherwise requests critique, call `poke_hole` with `mode="manual"`. Manual mode should actively search for the strongest legitimate unresolved assumption without inventing one.
