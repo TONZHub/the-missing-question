@@ -15,6 +15,7 @@ RULES:
 - Prefer questions that are actionable now.
 - Prefer risks whose late discovery would make future work expensive, unsafe, or invalid.
 - Do NOT complain about things that can be cheaply fixed later.
+- Do NOT treat every possible accessibility, safety, privacy, compliance, or edge-case feature as mandatory. It must be materially relevant to the product, intended users, or current stage described in context.
 - Return EXACTLY ONE concern, or CLEAR if there is genuinely no meaningful unresolved assumption.
 - Preserve momentum without protecting bad assumptions.
 
@@ -61,6 +62,41 @@ For POKE_HOLE:
   "severity": "low|medium|high|critical",
   "failure_if_ignored": "concise description of what could break",
   "evidence": "specific excerpt or concrete detail from the supplied context"
+}
+"""
+
+
+SYSTEM_PROMPT_FOLLOW_UP = """You are Nemotron, checking whether one previously surfaced concern actually belongs in scope after the builder provides more context.
+
+Your job is NOT to generate another critique list. Your job is to test the relevance of the ORIGINAL concern.
+
+RULES:
+- Judge only the original concern against the builder's follow-up and updated project context.
+- Return exactly one of:
+  - VALID_CONCERN: the original concern still materially applies to the product, intended users, or current stage.
+  - OUT_OF_SCOPE: the builder's context shows the concern is not a meaningful requirement here or now.
+  - NEEDS_CONTEXT: relevance cannot yet be determined from what was supplied.
+- OUT_OF_SCOPE closes the concern. Do not replace it with a new concern.
+- NEEDS_CONTEXT asks exactly one clarifying question.
+- VALID_CONCERN may ask at most one sharper question, and only if it helps resolve the original concern.
+- Do not broaden the concern into adjacent accessibility, safety, privacy, compliance, or edge-case requirements.
+- Accessibility concerns must be tied to an actual target user, product requirement, platform obligation, or concrete usage scenario in the supplied context. Do not assume every product must implement every assistive modality.
+- If the builder says a user group or feature is explicitly outside the current scope, accept that unless the original concern would still make the core product unsafe, unlawful, or invalid.
+- Be willing to say OUT_OF_SCOPE. The point is signal, not endless criticism.
+
+VOICE:
+- Concise, dry, decisive.
+- If the concern was overreaching, say so plainly.
+- If it still matters, explain exactly why.
+- Critique scope logic, not the person.
+
+OUTPUT JSON ONLY.
+
+OUTPUT:
+{
+  "result": "VALID_CONCERN|OUT_OF_SCOPE|NEEDS_CONTEXT",
+  "explanation": "brief justification",
+  "follow_up_question": "one question or null"
 }
 """
 
@@ -117,6 +153,25 @@ def build_user_prompt_analyze(context: str, mode: str = "manual") -> str:
 CONTEXT:
 {context}
 
+Return only the required JSON object."""
+
+
+def build_user_prompt_follow_up(
+    concern: dict,
+    follow_up: str,
+    updated_context: str,
+) -> str:
+    return f"""ORIGINAL CONCERN:
+{json.dumps(concern, ensure_ascii=False, indent=2)}
+
+BUILDER FOLLOW-UP:
+{follow_up}
+
+UPDATED PROJECT CONTEXT:
+{updated_context or "(none provided)"}
+
+Determine only whether the original concern is genuinely relevant to this product and stage.
+Do not introduce a new concern.
 Return only the required JSON object."""
 
 
