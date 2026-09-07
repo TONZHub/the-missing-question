@@ -441,6 +441,17 @@
       textarea.focus();
     }
 
+    if (evaluation.suggestion) {
+      const suggestion = document.createElement("div");
+      suggestion.className = "remaining-question";
+      suggestion.append(
+        makeText("strong", "", "> MAY I SUGGEST..."),
+        makeText("p", "", evaluation.suggestion),
+        makeText("p", "", "Optional. This does not affect the patch verdict.")
+      );
+      box.appendChild(suggestion);
+    }
+
     card.querySelector(".output-body").appendChild(box);
   }
 
