@@ -7,12 +7,14 @@ from typing import Any
 import httpx
 from pydantic import ValidationError
 
-from .models import AnalyzeResponse, PatchResponse
+from .models import AnalyzeResponse, FollowUpResponse, PatchResponse
 from .prompts import (
     SYSTEM_PROMPT_ANALYZE,
     SYSTEM_PROMPT_EVALUATE,
+    SYSTEM_PROMPT_FOLLOW_UP,
     build_user_prompt_analyze,
     build_user_prompt_evaluate,
+    build_user_prompt_follow_up,
 )
 
 
@@ -23,35 +25,16 @@ class NemotronError(RuntimeError):
 ANALYZE_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
-        "status": {
-            "type": "string",
-            "enum": ["CLEAR", "POKE_HOLE"],
-        },
-        "question": {
-            "type": ["string", "null"],
-            "description": "The single question the builder must answer. Null for CLEAR.",
-        },
-        "assumption": {
-            "type": ["string", "null"],
-            "description": "The unsupported assumption at the root. Null for CLEAR.",
-        },
-        "why_now": {
-            "type": ["string", "null"],
-            "description": "Why this matters at the current stage. Null for CLEAR.",
-        },
+        "status": {"type": "string", "enum": ["CLEAR", "POKE_HOLE"]},
+        "question": {"type": ["string", "null"]},
+        "assumption": {"type": ["string", "null"]},
+        "why_now": {"type": ["string", "null"]},
         "severity": {
             "type": ["string", "null"],
             "enum": ["low", "medium", "high", "critical", None],
-            "description": "Severity of the concern. Null for CLEAR.",
         },
-        "failure_if_ignored": {
-            "type": ["string", "null"],
-            "description": "What could break if the assumption is wrong. Null for CLEAR.",
-        },
-        "evidence": {
-            "type": ["string", "null"],
-            "description": "Specific evidence from the supplied context. Null for CLEAR.",
-        },
+        "failure_if_ignored": {"type": ["string", "null"]},
+        "evidence": {"type": ["string", "null"]},
     },
     "required": [
         "status",
@@ -66,6 +49,21 @@ ANALYZE_SCHEMA: dict[str, Any] = {
 }
 
 
+FOLLOW_UP_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "result": {
+            "type": "string",
+            "enum": ["VALID_CONCERN", "OUT_OF_SCOPE", "NEEDS_CONTEXT"],
+        },
+        "explanation": {"type": "string"},
+        "follow_up_question": {"type": ["string", "null"]},
+    },
+    "required": ["result", "explanation", "follow_up_question"],
+    "additionalProperties": False,
+}
+
+
 PATCH_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
@@ -73,17 +71,8 @@ PATCH_SCHEMA: dict[str, Any] = {
             "type": "string",
             "enum": ["PATCHED", "PARTIALLY_PATCHED", "STILL_OPEN"],
         },
-        "explanation": {
-            "type": "string",
-            "description": "A brief justification for the verdict.",
-        },
-        "remaining_question": {
-            "type": ["string", "null"],
-            "description": (
-                "Exactly one remaining question when PARTIALLY_PATCHED or STILL_OPEN. "
-                "Null when PATCHED."
-            ),
-        },
+        "explanation": {"type": "string"},
+        "remaining_question": {"type": ["string", "null"]},
     },
     "required": ["result", "explanation", "remaining_question"],
     "additionalProperties": False,
@@ -107,10 +96,8 @@ def _settings() -> tuple[str, str, str]:
 
 def _extract_text_content(message: dict[str, Any]) -> str:
     content = message.get("content")
-
     if isinstance(content, str):
         return content
-
     if isinstance(content, list):
         parts: list[str] = []
         for item in content:
@@ -118,7 +105,6 @@ def _extract_text_content(message: dict[str, Any]) -> str:
                 parts.append(item["text"])
         if parts:
             return "".join(parts)
-
     raise NemotronError("OpenRouter response did not contain structured text content.")
 
 
@@ -145,13 +131,10 @@ def _call_structured(
         },
         "temperature": temperature,
         "max_tokens": max_tokens,
-        # Route only to providers OpenRouter marks as not collecting user data,
-        # and only to providers that support the parameters in this request.
         "provider": {
             "data_collection": "deny",
             "require_parameters": True,
         },
-        # Let Nemotron reason, but don't return the reasoning trace.
         "reasoning": {"exclude": True},
     }
 
@@ -198,13 +181,11 @@ def _call_structured(
 
     if not isinstance(parsed, dict):
         raise NemotronError("Nemotron structured output was not a JSON object.")
-
     return parsed
 
 
 def _normalize_analyze(data: dict[str, Any]) -> dict[str, Any]:
     status = data.get("status")
-
     if status == "CLEAR":
         return {
             "status": "CLEAR",
@@ -215,7 +196,6 @@ def _normalize_analyze(data: dict[str, Any]) -> dict[str, Any]:
             "failure_if_ignored": None,
             "evidence": None,
         }
-
     return {
         "status": status,
         "question": data.get("question"),
@@ -224,6 +204,17 @@ def _normalize_analyze(data: dict[str, Any]) -> dict[str, Any]:
         "severity": data.get("severity"),
         "failure_if_ignored": data.get("failure_if_ignored"),
         "evidence": data.get("evidence"),
+    }
+
+
+def _normalize_follow_up(data: dict[str, Any]) -> dict[str, Any]:
+    result = data.get("result")
+    return {
+        "result": result,
+        "explanation": data.get("explanation"),
+        "follow_up_question": (
+            None if result == "OUT_OF_SCOPE" else data.get("follow_up_question")
+        ),
     }
 
 
@@ -243,15 +234,40 @@ def analyze_context(context: str, mode: str = "manual") -> AnalyzeResponse:
     ]
 
     last_error: Exception | None = None
-
     for _ in range(2):
         try:
             data = _call_structured(messages, "missing_question_analysis", ANALYZE_SCHEMA)
             return AnalyzeResponse.model_validate(_normalize_analyze(data))
         except (NemotronError, ValidationError) as exc:
             last_error = exc
-
     raise NemotronError(f"Invalid analyze response after retry: {last_error}")
+
+
+def evaluate_follow_up(
+    original_concern: dict[str, Any],
+    follow_up: str,
+    updated_context: str,
+) -> FollowUpResponse:
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT_FOLLOW_UP},
+        {
+            "role": "user",
+            "content": build_user_prompt_follow_up(
+                original_concern,
+                follow_up,
+                updated_context,
+            ),
+        },
+    ]
+
+    last_error: Exception | None = None
+    for _ in range(2):
+        try:
+            data = _call_structured(messages, "missing_question_follow_up", FOLLOW_UP_SCHEMA)
+            return FollowUpResponse.model_validate(_normalize_follow_up(data))
+        except (NemotronError, ValidationError) as exc:
+            last_error = exc
+    raise NemotronError(f"Invalid follow-up response after retry: {last_error}")
 
 
 def evaluate_patch(
@@ -272,12 +288,10 @@ def evaluate_patch(
     ]
 
     last_error: Exception | None = None
-
     for _ in range(2):
         try:
             data = _call_structured(messages, "missing_question_patch", PATCH_SCHEMA)
             return PatchResponse.model_validate(_normalize_patch(data))
         except (NemotronError, ValidationError) as exc:
             last_error = exc
-
     raise NemotronError(f"Invalid patch response after retry: {last_error}")
